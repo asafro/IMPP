@@ -1,10 +1,12 @@
 #include "PID_v1.h"
 #include "OneWire.h"
+#include "stage.h"
+#include "stages_manager.h"
 
 /*
    TODO:
-   1. Make sure we read temprature freom the right device
-   2. change return type for temprature to float so we can deal with fractions of deg.
+   1. Make sure we read temperature freom the right device
+   2. change return type for temperature to float so we can deal with fractions of deg.
    3. Why is the 0x10 check on device type fails ????
    4. Create debug controllable printouts
 */
@@ -18,9 +20,13 @@ const int ledPin = 13;       // pin that the LED is attached to
 const int threshold = 21;   // arbitrary threshold level
 const int BAD_READING = -1;
 
-//Define Variables for PID
+// Define Variables for PID
 double  Input, Output;
 double Setpoint = 28.0;
+
+// Define control flags
+bool isRunning = false;
+bool loadedStages = false;
 
 //Debug control
 bool DEBUG = true;
@@ -38,18 +44,30 @@ void setup(void) {
   pinMode(ledPin, OUTPUT);
   Serial.begin(9600);
   myPID.SetMode(AUTOMATIC);
+
+  Stage s = Stage(SET_TEMPERATURE, 1, 1);
 }
 
 /*
+  bool hasNewCommand(cmdType& cmd, int& temprature) {
+  bool isInTransaction = Serial.find("start")
+  if (isInTransaction) {
+    return true;
+  }
+  return false;
+  }*/
+
+/*
    GetCelsius: Assumes there is only one parasite device connected (addr:28 FF 9C 29 0 16 1 25)
-               and tells it to get temprature reading and return the value in integer celsius
-  )
+               and tells it to get temperature reading and return the value in integer celsius
 */
 double getCelsius(void) {
   int16_t res;
   byte i;
   byte data[12];
   byte addr[8];
+
+
 
   Serial.println("-1-");
   while ( !ds.search(addr)) {
@@ -104,20 +122,86 @@ void setMyPidTuningParameters() {
   }
 }
 
-void loop(void) {
-  Input = getCelsius();
-  setMyPidTuningParameters();
-  bool worked = myPID.Compute();
-  Serial.print("Compute worked: ");
-  Serial.println(worked);
-  Serial.print("Tempratue is: ");
-  Serial.println(Input);
-  Serial.print("Output is: ");
-  Serial.println(Output);
-  Serial.print("Setpoint is: ");
-  Serial.println(Setpoint);
 
-  analogWrite(13, Output);
+
+void loop(void) {
+
+  if (!loadedStages) {
+    String l = Serial.readString();
+    if (l != "") {
+      int idx = l.indexOf(',');
+      String opString = l.substring(0, idx);
+      cmdType cmd = NOOP;
+      if (opString == "1") {
+        cmd = SET_TEMPERATURE;
+      }
+      
+      
+      Serial.println(opString);
+
+      if (cmd == NOOP) {
+        loadedStages = true;
+      } else if (cmd == SET_TEMPERATURE) {
+        //........
+        Serial.println(temperatureString);
+      }
+      
+    } else {
+      Serial.println("empty----");
+    }
+    
+
+  }
+
+  /*
+  String l;
+  while (true) {
+    l = Serial.readString();
+    if (l == "") {
+      Serial.println("aaaaaaaa");
+    }
+    Serial.println(l);
+  }*/
+
+  /*
+    while (Serial.available() > 0) {
+
+    if (Serial.read() == '\n') {
+
+    }
+    }*/
+
+  /*
+    while (!Serial.find("start"))
+    {
+
+    }
+  */
+  /*
+  long tt = 0;
+  while (true) {
+
+    tt = Serial.parseInt();
+    Serial.print("tt is: ");
+    Serial.println(tt);
+    Serial.println(millis());
+  }*/
+
+  if (isRunning) {
+    Input = getCelsius();
+    setMyPidTuningParameters();
+    bool worked = myPID.Compute();
+    Serial.print("Compute worked: ");
+    Serial.println(worked);
+    Serial.print("Temperatue is: ");
+    Serial.println(Input);
+    Serial.print("Output is: ");
+    Serial.println(Output);
+    Serial.print("Setpoint is: ");
+    Serial.println(Setpoint);
+
+    analogWrite(13, Output);
+  }
 
 }
 
