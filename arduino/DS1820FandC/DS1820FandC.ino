@@ -2,6 +2,7 @@
 #include "OneWire.h"
 #include "stage.h"
 #include "stages_manager.h"
+#include "states.h"
 
 /*
    TODO:
@@ -26,7 +27,7 @@ double Setpoint = 28.0;
 
 // Define control flags
 bool isRunning = false;
-bool loadedStages = false;
+bool stagesLoaded = false;
 
 //Debug control
 bool DEBUG = true;
@@ -38,24 +39,18 @@ double consKp = 1, consKi = 0.05, consKd = 0.25;
 //Specify the links and initial tuning parameters
 PID myPID(&Input, &Output, &Setpoint, 2, 5, 1, REVERSE);
 
+ImpState state = IMP_READY;
+StagesManager stagesManager =  StagesManager();
+
 
 void setup(void) {
   // initialize the LED pin as an output:
   pinMode(ledPin, OUTPUT);
   Serial.begin(9600);
   myPID.SetMode(AUTOMATIC);
-
-  Stage s = Stage(SET_TEMPERATURE, 1, 1);
 }
 
-/*
-  bool hasNewCommand(cmdType& cmd, int& temprature) {
-  bool isInTransaction = Serial.find("start")
-  if (isInTransaction) {
-    return true;
-  }
-  return false;
-  }*/
+
 
 /*
    GetCelsius: Assumes there is only one parasite device connected (addr:28 FF 9C 29 0 16 1 25)
@@ -112,97 +107,91 @@ void setMyPidTuningParameters() {
   if (gap < 10)
   { //we're close to setpoint, use conservative tuning parameters
     myPID.SetTunings(consKp, consKi, consKd);
-    Serial.println("@@@@@@@@@@@@@@ setting tuning to cons");
   }
   else
   {
     //we're far from setpoint, use aggressive tuning parameters
     myPID.SetTunings(aggKp, aggKi, aggKd);
-    Serial.println(">>>>>>>>>>>>>>  setting tuning to agg");
   }
 }
 
 
-
 void loop(void) {
 
-  if (!loadedStages) {
-    String l = Serial.readString();
-    if (l != "") {
-      int idx = l.indexOf(',');
-      String opString = l.substring(0, idx);
-      cmdType cmd = NOOP;
-      if (opString == "1") {
-        cmd = SET_TEMPERATURE;
-      }
-      
-      
-      Serial.println(opString);
+  // Read serial to see if need to stop
+  String line = Serial.readString();
 
-      if (cmd == NOOP) {
-        loadedStages = true;
-      } else if (cmd == SET_TEMPERATURE) {
-        //........
-        Serial.println(temperatureString);
-      }
-      
-    } else {
-      Serial.println("empty----");
-    }
-    
-
+  if (DEBUG) {
+    Serial.print("State: ");
+    Serial.println(state);
+    //Serial.println(line);
   }
 
-  /*
-  String l;
-  while (true) {
-    l = Serial.readString();
-    if (l == "") {
-      Serial.println("aaaaaaaa");
+  // If a line was read there might be something to do
+  if (line != "") {
+
+    if (line == "Debug 0\n") {
+      DEBUG = false;
+      return;
+
+    } else if (line == "Debug 1\n") {
+      DEBUG = true;
+      return;
+
+    } else if (line == "Stages\n") {
+      stagesManager.printStages();
+      return;
+
+    } else if (line == "Stop\n") {
+      // If got "Stop" means the experiment is over and we reset the states.
+      // Clear the stages buffer and reset flags
+      stagesManager.resetStages();
+      state = IMP_READY;
+      return;
+
+    } else if (line == "Done\n") {
+      // If got "Done" we shold move to execution mode and start the experiment
+      state = IMP_RUNNING;
+      //stagesManager.doneLoadingStages = true;
+
+      Stage* pStage = stagesManager.getStage();
+      if (pStage != NULL) {
+        pStage->startStage();
+      }
+
+      return;
+
+    } else if (state != IMP_RUNNING) {
+      // If we are here we parse the line as "Temperature#, Time#"
+      int idx = line.indexOf(',');
+      int tempratureC = line.substring(0, idx).toInt();
+      int timeSec = line.substring(idx + 1, line.length() - 1).toInt();
+
+      if ((idx != -1) && (timeSec != 0)) {
+        state = IMP_LOADING;
+        stagesManager.addStage(tempratureC, timeSec);
+      }
     }
-    Serial.println(l);
-  }*/
-
-  /*
-    while (Serial.available() > 0) {
-
-    if (Serial.read() == '\n') {
-
-    }
-    }*/
-
-  /*
-    while (!Serial.find("start"))
-    {
-
-    }
-  */
-  /*
-  long tt = 0;
-  while (true) {
-
-    tt = Serial.parseInt();
-    Serial.print("tt is: ");
-    Serial.println(tt);
-    Serial.println(millis());
-  }*/
-
-  if (isRunning) {
-    Input = getCelsius();
-    setMyPidTuningParameters();
-    bool worked = myPID.Compute();
-    Serial.print("Compute worked: ");
-    Serial.println(worked);
-    Serial.print("Temperatue is: ");
-    Serial.println(Input);
-    Serial.print("Output is: ");
-    Serial.println(Output);
-    Serial.print("Setpoint is: ");
-    Serial.println(Setpoint);
-
-    analogWrite(13, Output);
   }
 
+  if (state == IMP_RUNNING) {
+    // Get stage
+    Stage* pStage = stagesManager.getStage();
+
+    // If no available stage we are done.
+
+    if (pStage == NULL) {
+
+      state = IMP_READY;
+      stagesManager.resetStages();
+      return;
+    }
+
+    //(TODO asaf: add work here)
+
+
+
+  }
 }
 
 

@@ -1,48 +1,69 @@
 #include "stages_manager.h"
-
+#include "OneWire.h"
 
 StagesManager::StagesManager() {}
 
 void StagesManager::addStage(Stage s) {
-  if (_num_stages >= MAX_STAGES) {
+  if (_numStages >= MAX_STAGES) {
     // (TODO asaf): probably want to crash or something like that...
     return;
   }
-  _stages[_num_stages] = s;
-  _num_stages++;
+  _stages[_numStages] = s;
+  _numStages++;
 }
 
-bool StagesManager::hasMoreStages() {
-  return _cur_stage < _num_stages;
+Stage* StagesManager::getStage() {
+  // If this is the first stage
+  if (_curStage == -1) {
+    Serial.println("first stage");
+    if (_numStages > 0) {
+      _curStage++;
+      _stages[_curStage].startStage();
+      return &_stages[_curStage];
+    }
+  } else if (_stages[_curStage].isDone()) {
+    Serial.println("stage done");
+    // If a stage was finished try to move to the next stage
+    if (_curStage < _numStages - 1) {
+      _curStage++;
+      _stages[_curStage].startStage();
+      return &_stages[_curStage];
+    }
+  } else {
+    Serial.println("still working");
+    // If the current stage is a real stage return it.
+    if (_stages[_curStage].isSet()) {
+      return &_stages[_curStage];
+    }
+  }
+  // All stages are done or no stages.
+  return NULL;
 }
 
-Stage& StagesManager::getNextStage() {
-  unsigned int ret_stage_idx = _cur_stage;
-  _cur_stage++;
-  return _stages[ret_stage_idx];
+void StagesManager::addStage(int temperatureC, int timeMs) {
+  Stage s = Stage(temperatureC, timeMs);
+  addStage(s);
 }
-/*
-#ifndef Stages_manager_h
-#define Stages_manager_h
 
-//#include "Arduino.h"
-#include "stage.h"
+void StagesManager::resetStages() {
+  //doneLoadingStages = false;
+  for (int i = 0 ; i < MAX_STAGES ; i++) {
+    _stages[i].resetStage();
+  }
 
-const unsigned int MAX_STAGES = 1000;
+  _numStages = 0;
+  _curStage = -1;
+}
 
-class StagesManager
-{
-  public:
-    StagesManager();
-    void addStage(Stage& s);
-    bool hasMoreStaegs();
-    Stage& getNextStage();
-    
-  private:
-    Stage _stages[MAX_STAGES];
-    unsigned int cur_stage = 0;
-    unsigned int num_stages = 0;
-};
+void StagesManager::printStages() {
+  Serial.println("Stages:");
+  for (int i = 0 ; i < MAX_STAGES ; i++) {
+    if (_stages[i].isSet()) {
+      Serial.print("Stage [");
+      Serial.print(i);
+      Serial.println("] :");
+      _stages[i].printStage();
+    }
+  }
+}
 
-#endif
- */

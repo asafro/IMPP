@@ -1,24 +1,29 @@
 #ifndef Stage_h
 #define Stage_h
 
-//#include "Arduino.h"
-#include "commands.h"
-
-
 
 class Stage
 {
   public:
     Stage();
-    Stage(cmdType cmd, long temprature, unsigned long duration);
-    cmdType cmd();
-    long temprature();
-    unsigned long duration();
+    Stage(long temprature, unsigned long duration_sec);
+
+    long temperature();
+    unsigned long durationMsec();
+    void printStage();
+    void resetStage();
+    void startStage();
+    void finishStage();
+    bool isDone();
+    bool isSet();
 
   private:
-    cmdType _cmd;
+    bool _done;
+    bool _set;
     long _temperature_c;
-    unsigned long _duration_sec;
+    unsigned long _durationMsec;
+    unsigned long _startTimeMsec;
+
 };
 
 #endif
