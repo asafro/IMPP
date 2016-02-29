@@ -14,7 +14,7 @@ class Stage
     void resetStage();
     void startStage();
     void finishStage();
-    bool isDone();
+    bool tryFinishAndGetIfDone();
     bool isSet();
 
   private:

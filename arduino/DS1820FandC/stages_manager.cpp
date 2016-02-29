@@ -21,7 +21,7 @@ Stage* StagesManager::getStage() {
       _stages[_curStage].startStage();
       return &_stages[_curStage];
     }
-  } else if (_stages[_curStage].isDone()) {
+  } else if (_stages[_curStage].tryFinishAndGetIfDone()) {
     Serial.println("stage done");
     // If a stage was finished try to move to the next stage
     if (_curStage < _numStages - 1) {

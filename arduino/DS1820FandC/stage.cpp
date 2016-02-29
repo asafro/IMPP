@@ -42,7 +42,7 @@ void Stage::finishStage() {
   _done = true;
 }
 
-bool Stage::isDone() {
+bool Stage::tryFinishAndGetIfDone() {
   unsigned long delta = millis() - _startTimeMsec;
   if ( delta > _durationMsec) {
     _done = true;
