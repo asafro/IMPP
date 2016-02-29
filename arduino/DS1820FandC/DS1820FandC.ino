@@ -46,7 +46,7 @@ StagesManager stagesManager =  StagesManager();
 void setup(void) {
   // initialize the LED pin as an output:
   pinMode(ledPin, OUTPUT);
-  Serial.begin(9600);
+  Serial.begin(19200);
   myPID.SetMode(AUTOMATIC);
 }
 

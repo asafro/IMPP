@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 
 import sys
+from arduino import Arduino, writeBatchTask, writeTask
+from time import sleep
+
+from multiprocessing import Process
 try:
     import pygtk
     pygtk.require("2.0")
@@ -22,6 +26,8 @@ class pyStages(object):
     dic = {"on_mainWindow_destroy" : gtk.main_quit,
            "on_tbAdd_clicked" : self.OnAddStage,
            "on_tbClear_clicked" : self.OnClear,
+           "on_tbPlay_clicked" : self.OnPlay,
+           "on_tbStop_clicked" : self.OnStop,
            }
     self.stagesTree.signal_autoconnect(dic)
     
@@ -60,6 +66,22 @@ class pyStages(object):
     if time and temperature:
       self.stagesList.append(Stage(temperature, time).getList())
 
+  def OnStop(self, widget):
+    p = Process(target=writeTask, args=('Stop', arduino))
+    p.start()
+
+  def OnPlay(self, widget):
+    commands = []
+    for row in self.stagesList:
+      line = '%s,%s' % (row[0], row[1])
+      commands.append(line)
+
+    if len(commands) > 0:
+      commands.append('Done')
+      p = Process(target=writeBatchTask, args=(commands, arduino))
+      p.start()
+
+
   def OnClear(self, widget):
     self.stagesList.clear()
 
@@ -73,5 +95,6 @@ class Stage:
     return [self.temperature, self.time]    
     
 if __name__ == "__main__":
+  arduino = Arduino('/dev/ttyACM0', 19200)
   stages = pyStages()
   gtk.main()
