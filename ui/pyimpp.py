@@ -21,7 +21,8 @@ class pyStages(object):
     #Set the Glade file
     self.gladefile = "pyimpp.glade"  
     self.stagesTree = gtk.glade.XML(self.gladefile, "mainWindow") 
-      
+    
+
     #Create our dictionay and connect it
     dic = {"on_mainWindow_destroy" : gtk.main_quit,
            "on_tbAdd_clicked" : self.OnAddStage,
@@ -70,6 +71,18 @@ class pyStages(object):
     p = Process(target=writeTask, args=('Stop', arduino))
     p.start()
 
+    output = self.stagesTree.get_widget("devOutput")
+    print dir(output)
+    buf = output.get_buffer()
+    print("\n\n------XXXXXX---------------------------\n\n")
+    print type(buf)
+    print dir(buf)
+    print("\n\n------XXXXXX---------------------------\n\n")
+    #buf.set_text('ASAF ASAF ')
+    #buf.insert_at_cursor("aaaaaaa")
+    buf.insert(buf.get_end_iter(), "asasasfadfad f\n")
+
+
   def OnPlay(self, widget):
     commands = []
     for row in self.stagesList:
@@ -93,8 +106,30 @@ class Stage:
     
   def getList(self):
     return [self.temperature, self.time]    
+   
+
+def readTask(arduino, stages):
+  while True:
+    sleep(1)
+    line = arduino.read()
+
+    # TODO: this cannot write to the UI.
+    # Instead, try using threads rather tha Process so all threads share the same space. this should also help with killing
+    # all threads when exitign
+    """
+    output = stages.stagesTree.get_widget("devOutput")
+    buf = output.get_buffer()
+    buf.insert(buf.get_end_iter(), line + "\n")
+    buf.set_text('ASAF ------------- ASAF ')
+    """
+    print line
     
+  
 if __name__ == "__main__":
   arduino = Arduino('/dev/ttyACM0', 19200)
   stages = pyStages()
+  # TODO (asaf): this is nice for creating a log, but how to kill a child process???
+  #p = Process(target=readTask, args=(arduino, stages))
+  #p.start()
+
   gtk.main()

@@ -33,8 +33,7 @@ class Arduino(object):
   
 
   def read(self):
-    pass
-    #return self.arduino.readline()
+    return self.arduino.readline()
 
 
 

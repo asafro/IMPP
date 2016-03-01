@@ -30,7 +30,7 @@ bool isRunning = false;
 bool stagesLoaded = false;
 
 //Debug control
-bool DEBUG = true;
+bool DEBUG = false;
 
 //Define the aggressive and conservative Tuning Parameters
 double aggKp = 4, aggKi = 0.2, aggKd = 1;
