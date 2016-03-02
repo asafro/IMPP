@@ -30,7 +30,7 @@ Stage* StagesManager::getStage() {
       return &_stages[_curStage];
     }
   } else {
-    Serial.println("still working");
+    //Serial.println("still working");
     // If the current stage is a real stage return it.
     if (_stages[_curStage].isSet()) {
       return &_stages[_curStage];

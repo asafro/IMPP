@@ -27,7 +27,7 @@ class pyStages(object):
     self.queue = textQueue
 
 
-    gobject.timeout_add(1000, self._update_text)
+    gobject.timeout_add(100, self._update_text)
 
     #Create our dictionay and connect it
     dic = {"on_mainWindow_destroy" : gtk.main_quit,
@@ -112,7 +112,7 @@ class pyStages(object):
       output = self.stagesTree.get_widget("devOutput")
       buf = output.get_buffer()
       buf.insert(buf.get_end_iter(), line)
-    except Empty:
+    except:
       pass
     # If we return a Falsy value then gobject will not call this again
     return True
@@ -134,7 +134,7 @@ class Stage:
 
 def readTask(arduino, sharedQueue):
   while True:
-    sleep(0.5)
+    sleep(0.1)
     line = arduino.read()
     sharedQueue.put(line)
 
@@ -143,7 +143,7 @@ def readTask(arduino, sharedQueue):
   
 if __name__ == "__main__":
   arduinoOutputQueue = Queue()
-  arduino = Arduino('/dev/ttyACM0', 19200)
+  arduino = Arduino('/dev/ttyACM0', 9600)
   stages = pyStages(arduinoOutputQueue)
 
   # Create a process for reading from the arduino and writing to shared queue

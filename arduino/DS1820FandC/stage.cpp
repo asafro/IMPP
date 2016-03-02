@@ -47,10 +47,11 @@ bool Stage::tryFinishAndGetIfDone() {
   if ( delta > _durationMsec) {
     _done = true;
   }
+  /*
   Serial.print("delta: ");
   Serial.println(delta);
   Serial.print("done: ");
-  Serial.println(_done);
+  Serial.println(_done);*/
   return _done;
 }
 

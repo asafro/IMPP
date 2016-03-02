@@ -47,8 +47,9 @@ StagesManager stagesManager =  StagesManager();
 void setup(void) {
   // initialize the LED pin as an output:
   pinMode(ledPin, OUTPUT);
-  Serial.begin(19200);
+  Serial.begin(9600);
   myPID.SetMode(AUTOMATIC);
+  Serial.setTimeout(100);
 }
 
 
@@ -185,6 +186,7 @@ void loop(void) {
 
       state = IMP_READY;
       stagesManager.resetStages();
+      Serial.println("Stages complete");
       return;
     }
 
