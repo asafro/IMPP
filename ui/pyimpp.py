@@ -3,8 +3,11 @@
 import sys
 from arduino import Arduino, writeBatchTask, writeTask
 from time import sleep
+import gobject
 
-from multiprocessing import Process
+from multiprocessing import Process, Queue
+from Queue import Empty
+
 try:
     import pygtk
     pygtk.require("2.0")
@@ -17,11 +20,14 @@ except:
     sys.exit(1)
 
 class pyStages(object):
-  def __init__(self):
+  def __init__(self, textQueue):
     #Set the Glade file
     self.gladefile = "pyimpp.glade"  
-    self.stagesTree = gtk.glade.XML(self.gladefile, "mainWindow") 
-    
+    self.stagesTree = gtk.glade.XML(self.gladefile, "mainWindow")
+    self.queue = textQueue
+
+
+    gobject.timeout_add(1000, self._update_text)
 
     #Create our dictionay and connect it
     dic = {"on_mainWindow_destroy" : gtk.main_quit,
@@ -58,45 +64,63 @@ class pyStages(object):
     self.stagesView.append_column(column)
     
   def OnAddStage(self, widget):
-    temperatureText = self.stagesTree.get_widget("textTemperature")
-    temperature = temperatureText.get_text()
+    temperatureTextWidget = self.stagesTree.get_widget("textTemperature")
+    temperatureText = temperatureTextWidget.get_text()
+    temperature = None
 
-    timeText = self.stagesTree.get_widget("textTime")
-    time = timeText.get_text()
+    timeTextWidget = self.stagesTree.get_widget("textTime")
+    timeText = timeTextWidget.get_text()
+    time = None
+
+    try:
+      temperature = int(temperatureText)
+      time = int(timeText)
+    except:
+      pass
 
     if time and temperature:
       self.stagesList.append(Stage(temperature, time).getList())
+      self._set_status('stage added')
+    else:
+      self._set_status('Illegal stage: Expecting two numbers and got %s, %s' % (temperatureText, timeText))
 
   def OnStop(self, widget):
     p = Process(target=writeTask, args=('Stop', arduino))
     p.start()
-
-    output = self.stagesTree.get_widget("devOutput")
-    print dir(output)
-    buf = output.get_buffer()
-    print("\n\n------XXXXXX---------------------------\n\n")
-    print type(buf)
-    print dir(buf)
-    print("\n\n------XXXXXX---------------------------\n\n")
-    #buf.set_text('ASAF ASAF ')
-    #buf.insert_at_cursor("aaaaaaa")
-    buf.insert(buf.get_end_iter(), "asasasfadfad f\n")
-
+    self._set_status('stopping experiment')
 
   def OnPlay(self, widget):
     commands = []
     for row in self.stagesList:
       line = '%s,%s' % (row[0], row[1])
       commands.append(line)
-
     if len(commands) > 0:
       commands.append('Done')
       p = Process(target=writeBatchTask, args=(commands, arduino))
       p.start()
-
+      self._set_status('starting experiment')
+    else:
+      self._set_status('no stages to run')
 
   def OnClear(self, widget):
     self.stagesList.clear()
+    self._set_status('cleared stages')
+
+  def _update_text(self):
+    try:
+      line = self.queue.get_nowait()
+      output = self.stagesTree.get_widget("devOutput")
+      buf = output.get_buffer()
+      buf.insert(buf.get_end_iter(), line)
+    except Empty:
+      pass
+    # If we return a Falsy value then gobject will not call this again
+    return True
+
+  def _set_status(self, message):
+    statusBar = self.stagesTree.get_widget("statusbar1")
+    statusBar.push(statusBar.get_context_id(message), message)
+
 
 
 class Stage:
@@ -108,28 +132,25 @@ class Stage:
     return [self.temperature, self.time]    
    
 
-def readTask(arduino, stages):
+def readTask(arduino, sharedQueue):
   while True:
-    sleep(1)
+    sleep(0.5)
     line = arduino.read()
+    sharedQueue.put(line)
 
-    # TODO: this cannot write to the UI.
-    # Instead, try using threads rather tha Process so all threads share the same space. this should also help with killing
-    # all threads when exitign
-    """
-    output = stages.stagesTree.get_widget("devOutput")
-    buf = output.get_buffer()
-    buf.insert(buf.get_end_iter(), line + "\n")
-    buf.set_text('ASAF ------------- ASAF ')
-    """
-    print line
+
     
   
 if __name__ == "__main__":
+  arduinoOutputQueue = Queue()
   arduino = Arduino('/dev/ttyACM0', 19200)
-  stages = pyStages()
-  # TODO (asaf): this is nice for creating a log, but how to kill a child process???
-  #p = Process(target=readTask, args=(arduino, stages))
-  #p.start()
+  stages = pyStages(arduinoOutputQueue)
+
+  # Create a process for reading from the arduino and writing to shared queue
+  p = Process(target=readTask, args=(arduino, arduinoOutputQueue))
+  p.start()
 
   gtk.main()
+
+  # Cleanup after UI thread is done
+  p.terminate()

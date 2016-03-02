@@ -21,14 +21,11 @@ class Arduino(object):
     while self.busy:
         pass
 
+    # Busy will fail.... change to a decent lock
     self.busy = True
     # TODO (asaf): read num of written chars and iterate until completion
     writeBuf = commandString + '\n'
     numchars = self.arduino.write(writeBuf)
-    print 'numchars: %s' % numchars
-    print 'commandString: %s' % commandString
-    print 'commandString len: %s' % len(commandString)
-
     self.busy = False
   
 
