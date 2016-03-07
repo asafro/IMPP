@@ -32,13 +32,6 @@ def resetArduino():
         _fd = os.open(arduinoBusAndDev, os.O_WRONLY)
         with os.fdopen(_fd, 'wt') as fd:
             fcntl.ioctl(fd, USBDEVFS_RESET, 0)
-        """
-        fd = os.open(arduinoBusAndDev, os.O_WRONLY)
-        try:
-            fcntl.ioctl(fd, USBDEVFS_RESET, 0)
-        finally:
-            os.close(fd)
-        """
     else:
         raise Exception("Could not find Arduino")
 
