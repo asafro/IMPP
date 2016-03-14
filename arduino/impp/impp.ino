@@ -1,5 +1,7 @@
-#include "PID_v1.h"
-#include "OneWire.h"
+#include <PID_v1.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
+
 #include "stage.h"
 #include "stages_manager.h"
 #include "states.h"
@@ -12,14 +14,21 @@
    4. Create debug controllable printouts
 */
 
-// http://www.pjrc.com/teensy/td_libs_OneWire.html
-// The DallasTemperature library can do all this work for you!
-// http://milesburton.com/Dallas_Temperature_Control_Library
 
-OneWire  ds(10);  // on pin 10 (need 4.7K resistor b/w data & ground)
+DeviceAddress imppThermometer = { 0x28, 0xB1, 0x61, 0x5D, 0x07, 0x00, 0x00, 0xCD };
+
+// Data wire is plugged into pin 3 on the Arduino
+#define ONE_WIRE_BUS 3
+
+// Setup a oneWire instance to communicate with any OneWire devices
+OneWire oneWire(ONE_WIRE_BUS);
+
+// Pass our oneWire reference to Dallas Temperature.
+DallasTemperature sensors(&oneWire);
+
+
 const int ledPin = 13;       // pin that the LED is attached to
-const int threshold = 21;   // arbitrary threshold level
-const int BAD_READING = -1;
+
 
 // Define Variables for PID
 double  Input, Output;
@@ -47,62 +56,34 @@ StagesManager stagesManager =  StagesManager();
 void setup(void) {
   // initialize the LED pin as an output:
   pinMode(ledPin, OUTPUT);
+  
   Serial.begin(9600);
-  myPID.SetMode(AUTOMATIC);
+  // Set short timeout so iteratino blocking part is short
   Serial.setTimeout(100);
+  
+  sensors.begin();
+  // set the resolution to 10 bit (good enough?)
+  sensors.setResolution(imppThermometer, 10);
+
+  myPID.SetMode(AUTOMATIC);
 }
 
 
 
-/*
-   GetCelsius: Assumes there is only one parasite device connected (addr:28 FF 9C 29 0 16 1 25)
-               and tells it to get temperature reading and return the value in integer celsius
-*/
-double getCelsius(void) {
-  int16_t res;
-  byte i;
-  byte data[12];
-  byte addr[8];
-
-
-
-  Serial.println("-1-");
-  while ( !ds.search(addr)) {
-    Serial.print("No more addresses.\n");
-    ds.reset_search();
-    delay(250);
+float getTemperature(DeviceAddress deviceAddress)
+{
+  sensors.requestTemperatures();
+  
+  float tempC = sensors.getTempC(deviceAddress);
+  
+  // Check if error read
+  if (tempC == -127.00) {
+    //TODO (asaf): report error on the serial and make sure the UI can reflect
   }
 
-  if ( OneWire::crc8( addr, 7) != addr[7]) {
-    Serial.print("CRC is not valid!\n");
-    return BAD_READING;
-  }
-
-  // The DallasTemperature library can do all this work for you!
-  ds.reset();
-  ds.select(addr);
-  ds.write(0x44, 1);        // start conversion, with parasite power on at the end
-  delay(1000);     // maybe 750ms is enough, maybe not
-  // we might do a ds.depower() here, but the reset will take care of it.
-  ds.reset();
-  ds.select(addr);
-  ds.write(0xBE);         // Read Scratchpad
-  for ( i = 0; i < 9; i++) {           // we need 9 bytes
-    data[i] = ds.read();
-  }
-
-  int16_t raw = (data[1] << 8) | data[0];
-  // Assumoing our chip is XXXb we...
-  byte cfg = (data[4] & 0x60);
-  // at lower res, the low bits are undefined, so let's zero them
-  if (cfg == 0x00) raw = raw & ~7;  // 9 bit resolution, 93.75 ms
-  else if (cfg == 0x20) raw = raw & ~3; // 10 bit res, 187.5 ms
-  else if (cfg == 0x40) raw = raw & ~1; // 11 bit res, 375 ms
-  //// default is 12 bit resolution, 750 ms conversion time
-
-  res = (float)raw / 16.0;
-  return double(res);
+  return tempC;
 }
+
 
 void setMyPidTuningParameters() {
   double gap = abs(Setpoint - Input); //distance away from setpoint
@@ -119,6 +100,8 @@ void setMyPidTuningParameters() {
 
 
 void loop(void) {
+
+  delay(1000);
 
   // Read serial to see if need to stop
   String line = Serial.readString();
@@ -195,6 +178,25 @@ void loop(void) {
 
 
   }
+
+  // Report to UI the current temprature
+  float curTemp = getTemperature(imppThermometer);
+  Serial.print("curTemp: ");
+  Serial.println(curTemp);
+  //Input = getCelsius();
+  /*
+  setMyPidTuningParameters();
+  bool worked = myPID.Compute();
+  Serial.print("Compute worked: ");
+  Serial.println(worked);
+  Serial.print("Tempratue is: ");
+  Serial.println(Input);
+  Serial.print("Output is: ");
+  Serial.println(Output);
+  Serial.print("Setpoint is: ");
+  Serial.println(Setpoint);
+
+  analogWrite(13, Output);*/
 }
 
 

@@ -35,6 +35,7 @@ class pyStages(object):
            "on_tbClear_clicked" : self.OnClear,
            "on_tbPlay_clicked" : self.OnPlay,
            "on_tbStop_clicked" : self.OnStop,
+           "on_tbClearBoxes_clicked" : self.OnCleanBoxes,
            }
     self.stagesTree.signal_autoconnect(dic)
     
@@ -62,7 +63,14 @@ class pyStages(object):
     column.set_resizable(True)    
     column.set_sort_column_id(columnId)
     self.stagesView.append_column(column)
-    
+
+  def OnCleanBoxes(self, widget):
+    temperatureTextWidget = self.stagesTree.get_widget("textTemperature")
+    temperatureTextWidget.set_text('')
+
+    timeTextWidget = self.stagesTree.get_widget("textTime")
+    timeTextWidget.set_text('')
+
   def OnAddStage(self, widget):
     temperatureTextWidget = self.stagesTree.get_widget("textTemperature")
     temperatureText = temperatureTextWidget.get_text()
@@ -109,9 +117,15 @@ class pyStages(object):
   def _update_text(self):
     try:
       line = self.queue.get_nowait()
-      output = self.stagesTree.get_widget("devOutput")
-      buf = output.get_buffer()
+      outputWidget = self.stagesTree.get_widget("devOutput")
+      buf = outputWidget.get_buffer()
       buf.insert(buf.get_end_iter(), line)
+
+      if line.startswith('curTemp:'):
+        tempVal = line[9: -1]
+        curTempWidget = self.stagesTree.get_widget("tempratureStatusbar")
+        curTempWidget.push(curTempWidget.get_context_id(tempVal), tempVal)
+
     except:
       pass
     # If we return a Falsy value then gobject will not call this again
