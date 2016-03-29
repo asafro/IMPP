@@ -4,6 +4,8 @@ import sys
 from arduino import Arduino, writeBatchTask, writeTask
 from time import sleep
 import gobject
+import datetime
+
 
 from multiprocessing import Process, Queue
 from Queue import Empty
@@ -19,12 +21,16 @@ try:
 except:
     sys.exit(1)
 
+LOGGER_HEADER = 'time\ttargetTemp\tmeasuredTemp\toutput'
+
 class pyStages(object):
   def __init__(self, textQueue):
     #Set the Glade file
     self.gladefile = "pyimpp.glade"  
     self.stagesTree = gtk.glade.XML(self.gladefile, "mainWindow")
     self.queue = textQueue
+    self.running = False
+    self.log = [LOGGER_HEADER]
 
 
     gobject.timeout_add(100, self._update_text)
@@ -93,9 +99,9 @@ class pyStages(object):
       self._set_status('Illegal stage: Expecting two numbers and got %s, %s' % (temperatureText, timeText))
 
   def OnStop(self, widget):
-    p = Process(target=writeTask, args=('Stop', arduino))
+    p = Process(target=writeTask, args=('stop', arduino))
     p.start()
-    self._set_status('stopping experiment')
+    self._on_done()
 
   def OnPlay(self, widget):
     commands = []
@@ -103,10 +109,11 @@ class pyStages(object):
       line = '%s,%s' % (row[0], row[1])
       commands.append(line)
     if len(commands) > 0:
-      commands.append('Done')
+      commands.append('done')
       p = Process(target=writeBatchTask, args=(commands, arduino))
       p.start()
       self._set_status('starting experiment')
+      self.running = True
     else:
       self._set_status('no stages to run')
 
@@ -114,12 +121,33 @@ class pyStages(object):
     self.stagesList.clear()
     self._set_status('cleared stages')
 
+  def _on_done(self):
+    self._set_status('completed experiment')
+    if self.running == True:
+      print self.log
+      with open('%s.tsv' % datetime.datetime.now().strftime("%Y%m%d%H%M%S"), 'w') as logfile:
+        for l in self.log:
+          logfile.write('%s\n' % l)
+
+    self.running = False
+    self.log = [LOGGER_HEADER]
+
   def _update_text(self):
     try:
       line = self.queue.get_nowait()
-      outputWidget = self.stagesTree.get_widget("devOutput")
-      buf = outputWidget.get_buffer()
-      buf.insert(buf.get_end_iter(), line)
+      #outputWidget = self.stagesTree.get_widget("devOutput")
+      #buf = outputWidget.get_buffer()
+      #buf.insert(buf.get_end_iter(), line)
+
+      if line == 'finished\r\n':
+        self._on_done()
+        
+      if line.startswith('impp_ctrl::'):
+        if self.running:
+          (_, timestamp, _, readings) = line.strip().split('::')
+          (targetT, currentT, outputV) = readings.split(',')
+          self.log.append('%s\t%s\t%s\t%s' % (timestamp, targetT, currentT, outputV))
+         
 
       if line.startswith('curTemp:'):
         tempVal = line[9: -1]
@@ -135,8 +163,6 @@ class pyStages(object):
     statusBar = self.stagesTree.get_widget("statusbar1")
     statusBar.push(statusBar.get_context_id(message), message)
 
-
-
 class Stage:
   def __init__(self, temperature="", time=""):
     self.temperature = temperature
@@ -144,7 +170,6 @@ class Stage:
     
   def getList(self):
     return [self.temperature, self.time]    
-   
 
 def readTask(arduino, sharedQueue):
   while True:
@@ -152,12 +177,10 @@ def readTask(arduino, sharedQueue):
     line = arduino.read()
     sharedQueue.put(line)
 
-
-    
   
 if __name__ == "__main__":
   arduinoOutputQueue = Queue()
-  arduino = Arduino('/dev/ttyACM0', 9600)
+  arduino = Arduino('/dev/ttyACM1', 9600)
   stages = pyStages(arduinoOutputQueue)
 
   # Create a process for reading from the arduino and writing to shared queue

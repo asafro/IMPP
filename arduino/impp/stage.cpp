@@ -48,10 +48,10 @@ bool Stage::tryFinishAndGetIfDone() {
     _done = true;
   }
   /*
-  Serial.print("delta: ");
-  Serial.println(delta);
-  Serial.print("done: ");
-  Serial.println(_done);*/
+    Serial.print("delta: ");
+    Serial.println(delta);
+    Serial.print("done: ");
+    Serial.println(_done);*/
   return _done;
 }
 
@@ -66,5 +66,4 @@ void Stage::printStage() {
   Serial.println(_set);
 
 }
-
 

@@ -3,7 +3,7 @@
 
 #include "stage.h"
 
-const unsigned int MAX_STAGES = 1000;
+const unsigned int MAX_STAGES = 10;
 
 class StagesManager
 {
